@@ -165,22 +165,34 @@ def get_internal_links(session, base_url, page_number):
 st.set_page_config(page_title="ExamTopics Scraper", layout="wide")
 
 # SIDEBAR LỊCH SỬ CHẠY
-st.sidebar.title("Lịch sử chạy")
+st.sidebar.title("Quản lý hệ thống")
 history_data = load_history()
-if history_data:
-    # Chuyển hoá dạng data lịch sử qua bảng gọn gàng
-    display_history = []
-    for r in reversed(history_data): # đảo ngược để dòng mới nhất lên đầu bề mặt bảng
-        display_history.append({
-            "TG": r["timestamp"].split(" ")[1], # Lấy mỗi giờ phút
-            "Ngày": r["timestamp"].split(" ")[0],
-            "Hãng": r["vendor"].upper(),
-            "Pages": f"{r['start_page']}-{r['end_page']}",
-            "Links": r["total_links"]
-        })
-    st.sidebar.dataframe(display_history, use_container_width=True, hide_index=True)
-else:
-    st.sidebar.info("Chưa có lịch sử chạy nào.")
+
+with st.sidebar.expander("📜 Lịch sử chạy", expanded=False):
+    if history_data:
+        for r in reversed(history_data):
+            col_info, col_btn = st.columns([3, 2])
+            with col_info:
+                st.markdown(f"**{r['vendor'].upper()}**")
+                st.caption(f"Trang {r['start_page']}-{r['end_page']} • {r['total_links']} links<br>{r['timestamp']}", unsafe_allow_html=True)
+            with col_btn:
+                st.write("")
+                if os.path.exists(r['file_path']):
+                    with open(r['file_path'], 'rb') as f:
+                        file_data = f.read()
+                    dl_name = f"examtopic-{r['vendor']}-{r['end_page']}.csv"
+                    st.download_button(
+                        "Tải về", 
+                        data=file_data, 
+                        file_name=dl_name, 
+                        key=f"dl_{r['file_path']}_{r['timestamp']}",
+                        use_container_width=True
+                    )
+                else:
+                    st.button("Đã xoá", disabled=True, key=f"del_{r['timestamp']}", use_container_width=True)
+            st.divider()
+    else:
+        st.info("Chưa có lịch sử chạy nào.")
     
 
 # VÙNG CHÍNH TIẾN TRÌNH
