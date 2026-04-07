@@ -64,3 +64,4 @@ jobs:
           app-name: 'examtopics-scraper'
           slot-name: 'Production'
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_FB52EDDDDAC34842B02FC7529C97A45B }}
+          startup-command: 'python -m streamlit run app.py --server.port 8000 --server.address 0.0.0.0'
