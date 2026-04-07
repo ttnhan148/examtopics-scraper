@@ -158,6 +158,26 @@ def get_internal_links(session, base_url, page_number):
             
     return list(links), None
 
+def get_client_info():
+    ip, device = "Unknown IP", "Unknown Device"
+    try:
+        if hasattr(st, 'context') and hasattr(st.context, 'headers'):
+            headers = st.context.headers
+            x_forwarded = headers.get("X-Forwarded-For", "")
+            x_real_ip = headers.get("X-Real-IP", "")
+            ip = x_forwarded.split(",")[0].strip() if x_forwarded else (x_real_ip if x_real_ip else "Local/Direct")
+            
+            ua = headers.get("User-Agent", "Unknown Device")
+            if "Windows" in ua: device = "Windows"
+            elif "Mac OS" in ua: device = "Mac"
+            elif "Android" in ua: device = "Android"
+            elif "iPhone" in ua or "iPad" in ua: device = "iOS"
+            elif "Linux" in ua: device = "Linux"
+            else: device = ua[:20] + "..." if len(ua) > 20 else ua
+    except Exception:
+        pass
+    return ip, device
+
 # ==========================================
 # GIAO DIỆN STREAMLIT
 # ==========================================
@@ -168,31 +188,44 @@ st.set_page_config(page_title="ExamTopics Scraper", layout="wide")
 st.sidebar.title("Quản lý hệ thống")
 history_data = load_history()
 
-with st.sidebar.expander("📜 Lịch sử chạy", expanded=False):
-    if history_data:
-        for r in reversed(history_data):
-            col_info, col_btn = st.columns([3, 2])
-            with col_info:
-                st.markdown(f"**{r['vendor'].upper()}**")
-                st.caption(f"Trang {r['start_page']}-{r['end_page']} • {r['total_links']} links<br>{r['timestamp']}", unsafe_allow_html=True)
-            with col_btn:
-                st.write("")
-                if os.path.exists(r['file_path']):
-                    with open(r['file_path'], 'rb') as f:
-                        file_data = f.read()
-                    dl_name = f"examtopic-{r['vendor']}-{r['end_page']}.csv"
-                    st.download_button(
-                        "Tải về", 
-                        data=file_data, 
-                        file_name=dl_name, 
-                        key=f"dl_{r['file_path']}_{r['timestamp']}",
-                        use_container_width=True
-                    )
-                else:
-                    st.button("Đã xoá", disabled=True, key=f"del_{r['timestamp']}", use_container_width=True)
-            st.divider()
-    else:
+@st.dialog("📜 Lịch sử hệ thống (Dạng bảng)", width="large")
+def show_history_dialog():
+    if not history_data:
         st.info("Chưa có lịch sử chạy nào.")
+        return
+        
+    # Headers bảng
+    h1, h2, h3, h4, h5, h6 = st.columns([1.5, 1.5, 1, 1.5, 1.5, 1])
+    h1.write("**Thời gian**")
+    h2.write("**Hãng**")
+    h3.write("**Trang (Links)**")
+    h4.write("**Client IP**")
+    h5.write("**Thiết bị**")
+    h6.write("**Thao tác**")
+    st.divider()
+
+    # Nội dung từng dòng
+    for r in reversed(history_data[-50:]): # Chỉ hiển thị 50 dòng mới nhất
+        c1, c2, c3, c4, c5, c6 = st.columns([1.5, 1.5, 1, 1.5, 1.5, 1])
+        c1.write(r['timestamp'])
+        c2.write(f"**{r['vendor'].upper()}**")
+        c3.write(f"{r['start_page']}-{r['end_page']} ({r['total_links']})")
+        c4.write(r.get('client_ip', 'N/A'))
+        c5.write(r.get('client_device', 'N/A'))
+        with c6:
+            if os.path.exists(r['file_path']):
+                with open(r['file_path'], 'rb') as f:
+                    file_data = f.read()
+                dl_name = f"examtopic-{r['vendor']}-{r['end_page']}.csv"
+                st.download_button("Tải về", data=file_data, file_name=dl_name, key=f"dl_{r['timestamp']}", use_container_width=True)
+            else:
+                st.button("Đã xoá", disabled=True, key=f"del_{r['timestamp']}", use_container_width=True)
+        # Giảm margin cho giống bảng
+        st.write("<style>div.row-widget.stLine {margin-top: 0px; margin-bottom: 5px; border-color: rgba(250,250,250, 0.1)}</style>", unsafe_allow_html=True)
+        st.divider()
+
+if st.sidebar.button("📜 Mở bảng quản lý lịch sử", use_container_width=True):
+    show_history_dialog()
     
 
 # VÙNG CHÍNH TIẾN TRÌNH
@@ -201,12 +234,17 @@ st.markdown("Hệ thống tự động lưu trữ dữ liệu. **Vui lòng nhậ
 
 col1, col2 = st.columns(2)
 with col1:
-    vendor = st.selectbox(
+    vendor_selection = st.selectbox(
         "Hãng", 
-        ["Microsoft", "Cisco", "Amazon", "Oracle", "Google", "CompTIA", "Palo-Alto-Networks", "VMware", "Salesforce"]
+        ["Microsoft", "Cisco", "Amazon", "Oracle", "Google", "CompTIA", "Palo-Alto-Networks", "VMware", "Salesforce", "Khác... (Nhập tay)"]
     )
+    if vendor_selection == "Khác... (Nhập tay)":
+        vendor = st.text_input("Nhập tên hãng (viết liền, không dấu, ví dụ: isaca)", "").strip()
+    else:
+        vendor = vendor_selection
+        
 with col2:
-    vendor_lower = vendor.lower()
+    vendor_lower = vendor.lower() if vendor else "microsoft"
     url = f"https://www.examtopics.com/discussions/{vendor_lower}/"
     st.markdown(f"<div style='margin-bottom: 6px; font-size: 14px; font-weight: 400; color: inherit;'>Format URL</div>"
                 f"<div style='padding: 8px 14px; background-color: rgba(128, 128, 128, 0.1); border-radius: 8px;'>"
@@ -333,13 +371,16 @@ if start_btn:
                 f.write(csv_data)
                 
             # Lưu lịch sử (metadata json)
+            client_ip, client_device = get_client_info()
             history_record = {
                 "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 "vendor": vendor_lower,
                 "start_page": start_page,
                 "end_page": end_page,
                 "total_links": len(all_links),
-                "file_path": server_file_path
+                "file_path": server_file_path,
+                "client_ip": client_ip,
+                "client_device": client_device
             }
             history_data.append(history_record)
             save_history(history_data)
