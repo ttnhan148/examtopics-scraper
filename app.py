@@ -188,7 +188,7 @@ st.set_page_config(page_title="ExamTopics Scraper", layout="wide")
 st.sidebar.title("Quản lý hệ thống")
 history_data = load_history()
 
-@st.dialog("📜 Lịch sử hệ thống (Dạng bảng)", width="large")
+@st.dialog("Lịch sử tiến trình thực hiện quét", width="large")
 def show_history_dialog():
     if not history_data:
         st.info("Chưa có lịch sử chạy nào.")
@@ -224,7 +224,7 @@ def show_history_dialog():
         st.write("<style>div.row-widget.stLine {margin-top: 0px; margin-bottom: 5px; border-color: rgba(250,250,250, 0.1)}</style>", unsafe_allow_html=True)
         st.divider()
 
-if st.sidebar.button("📜 Mở bảng quản lý lịch sử", use_container_width=True):
+if st.sidebar.button("Quản lý lịch sử", use_container_width=True):
     show_history_dialog()
     
 
@@ -236,10 +236,10 @@ col1, col2 = st.columns(2)
 with col1:
     vendor_selection = st.selectbox(
         "Hãng", 
-        ["Microsoft", "Cisco", "Amazon", "Oracle", "Google", "CompTIA", "Palo-Alto-Networks", "VMware", "Salesforce", "Khác... (Nhập tay)"]
+        ["Microsoft", "Cisco", "Amazon", "Oracle", "Google", "CompTIA", "Palo-Alto-Networks", "VMware", "Nvidia", "Khác... (Nhập tay)"]
     )
     if vendor_selection == "Khác... (Nhập tay)":
-        vendor = st.text_input("Nhập tên hãng (viết liền, không dấu, ví dụ: isaca)", "").strip()
+        vendor = st.text_input("Nhập tên hãng (viết liền, không dấu, ví dụ: salesforce)", "").strip()
     else:
         vendor = vendor_selection
         
@@ -420,3 +420,12 @@ if st.session_state.get('process_complete') and st.session_state.get('csv_data')
             log_html += "<br>".join(st.session_state.logs)
             log_html += "</div>"
             st.markdown(log_html, unsafe_allow_html=True)
+
+# Footer
+st.markdown(
+    "<div style='text-align: center; margin-top: 100px; padding-bottom: 20px; color: gray; font-size: 14px;'>"
+    "Made by nhantt with ❤️.<br>"
+    "Powered by Gemini AI Pro + Antigravity + Azure"
+    "</div>",
+    unsafe_allow_html=True
+)
